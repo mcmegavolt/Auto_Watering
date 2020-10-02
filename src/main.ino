@@ -1,3 +1,9 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <GyverEncoder.h>
+#include <GyverTimer.h>
+#include <CustomChars.h>
+
 #define VERSION "v0.12"
 
 #define CLK 6
@@ -5,49 +11,53 @@
 #define SW 4
 
 #define PUMP_PIN 7
-#define COMP_PIN 8
-#define OZONE_PIN 9
+#define OZONE_PIN 8
 
-#include "GyverEncoder.h"
-#include "GyverTimer.h"
 Encoder enc1(CLK, DT, SW, TYPE2);
 GTimer backlightTimer(MS);
 
-// Midi to Arduino Converter
-// https://www.extramaster.net/tools/midiToArduino/
+// Midi to Arduino Converter - https://www.extramaster.net/tools/midiToArduino/
 // Tone settings
 int tonePin = 2;
 float toneScale = 0.5;
 int toneLength = 145;
 int uptimeInSeconds;
 
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Animation params
+#define ANIMATION_FPS 180
+GTimer animationTimer(MS);
+int lineAnimationFramesCount = 4 - 1;
+int lineAnimationCurrentFrame = 0;
+int snakeAnimationFramesCount = 11 - 1;
+int snakeAnimationCurrentFrame = 0;
+int zoomAnimationFramesCount = 8 - 1;
+int zoomAnimationCurrentFrame = 0;
 
 int releaseVar = 0;
 int holdVar = 0;
 
 bool pumpEnabled = false;
-bool compEnabled = false;
 bool ozoneEnabled = false;
 
 void setup()
 {
   pinMode(PUMP_PIN, OUTPUT);
-  pinMode(COMP_PIN, OUTPUT);
   pinMode(OZONE_PIN, OUTPUT);
 
-  digitalWrite(COMP_PIN, HIGH);
   digitalWrite(OZONE_PIN, HIGH);
 
   //    Serial.begin(9600);
-  playIntro();
+  // playIntro();
 
-  backlightTimer.setTimeout(8000);
+  backlightTimer.setTimeout(10000);
   backlightTimer.start();
   initDisplayIntro();
   //    beep(3);
+
+  animationTimer.setInterval(ANIMATION_FPS);
+  animationTimer.start();
 }
 
 void loop()
@@ -116,7 +126,6 @@ void loop()
     lcd.backlight();
     backlightTimer.start();
     //      lcd.print("Holded");
-    ozoneEnabled = !ozoneEnabled;
     beep(2);
   }
 
@@ -127,7 +136,7 @@ void loop()
   lcd.print("h:");
   lcd.print(holdVar);
 
-  printUpTime();
+  // printUpTime();
 
   if (backlightTimer.isReady())
     lcd.noBacklight();
@@ -139,33 +148,6 @@ void loop()
   else
   {
     pumpEnabled = false;
-  }
-
-  if (holdVar > 0)
-  {
-    compEnabled = true;
-  }
-  else
-  {
-    compEnabled = false;
-  }
-
-  if (pumpEnabled)
-  {
-    digitalWrite(PUMP_PIN, HIGH);
-  }
-  else
-  {
-    digitalWrite(PUMP_PIN, LOW);
-  }
-
-  if (compEnabled)
-  {
-    digitalWrite(COMP_PIN, LOW);
-  }
-  else
-  {
-    digitalWrite(COMP_PIN, HIGH);
   }
 
   if (ozoneEnabled)
@@ -182,6 +164,57 @@ void loop()
   lcd.setCursor(10, 0);
   lcd.print("v");
   lcd.print(voltage);
+
+  // playAnimatedLine(15, 1);
+  // playAnimatedSnake(15, 1);
+  playZoomCircle(15, 1);
+}
+
+void playAnimatedLine(int position, int line)
+{
+
+  lcd.createChar(0, lineFrames[lineAnimationCurrentFrame]);
+  lcd.setCursor(position, line);
+  lcd.write(0);
+
+  if (animationTimer.isReady())
+  {
+    if (lineAnimationCurrentFrame < lineAnimationFramesCount)
+      lineAnimationCurrentFrame++;
+    else
+      lineAnimationCurrentFrame = 0;
+  }
+}
+
+void playAnimatedSnake(int position, int line)
+{
+
+  lcd.createChar(1, snakeFrames[snakeAnimationCurrentFrame]);
+  lcd.setCursor(position, line);
+  lcd.write(1);
+
+  if (animationTimer.isReady())
+  {
+    if (snakeAnimationCurrentFrame < snakeAnimationFramesCount)
+      snakeAnimationCurrentFrame++;
+    else
+      snakeAnimationCurrentFrame = 0;
+  }
+}
+
+void playZoomCircle(int position, int line)
+{
+  lcd.createChar(3, snakeFrames[zoomAnimationCurrentFrame]);
+  lcd.setCursor(position, line);
+  lcd.write(3);
+
+  if (animationTimer.isReady())
+  {
+    if (zoomAnimationCurrentFrame < zoomAnimationFramesCount)
+      zoomAnimationCurrentFrame++;
+    else
+      zoomAnimationCurrentFrame = 0;
+  }
 }
 
 void playIntro()
